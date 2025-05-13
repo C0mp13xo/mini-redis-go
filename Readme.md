@@ -1,120 +1,50 @@
-This is a simplified Redis-like in-memory cache service implemented in Golang, aimed to help you understand the internals of caching systems like Redis.
-We're building this from scratch, step-by-step, towards an enterprise-level scalable architecture.
+📦 Mini Redis-like In-Memory LRU Cache (Go)
+This project is a simplified Redis-like in-memory key-value store written in Golang.
 
-✅ Current Features
- In-Memory Key-Value Cache
+It supports:
 
- Expiration Support (TTL)
+✅ Basic Set, Get, Delete operations
 
- Background Cleanup of Expired Keys using time.Ticker
+✅ TTL (Time-To-Live) expiration for keys
 
- Graceful Shutdown Handling via OS signals (SIGINT, SIGTERM)
+✅ LRU Eviction Policy for limited capacity
 
- HTTP Server exposing cache endpoints (planned)
+✅ Periodic cleanup of expired keys
 
-✅ Architecture Overview (So Far)
-scss
-Copy
-Edit
-main.go
-│
-├── Starts Cache & Cleanup goroutine
-├── Runs HTTP Server (ListenAndServe)
-├── Handles graceful shutdown signals (Ctrl+C / SIGTERM)
-│
-└── cleanupExpiredKeys()
-    └── Runs every N seconds using time.Ticker
-        └── Iterates keys, deletes expired ones
-✅ Example: Graceful Shutdown Flow
-User presses Ctrl+C.
+🗂️ Current Design
+Data Structures:
+Component	Type	Purpose
+map[string]*list.Element	Map	O(1) lookup of keys
+container/list.List	Doubly Linked List	Tracks usage order (front = MRU, back = LRU)
+CacheItem struct	Struct	Holds Value, Key, and Expiry time
 
-Signal handler goroutine triggers shutdown:
+LRU Eviction:
+On Get or Set: Move key to front of the list (MRU).
 
-Stops cleanupExpiredKeys ticker.
+On overflow: Evict Back() element (LRU).
 
-Gracefully shuts down HTTP server.
+Expired keys cleaned in background goroutine.
 
-Application exits cleanly.
+TTL Cleanup:
+Background goroutine using time.Ticker cleans expired keys every N seconds.
 
-✅ Key Concepts Covered
-Concept	Why it's Important
-time.Ticker	Efficient periodic tasks without tight loops.
-Goroutines	Concurrency handling for cleanup & signal handling.
-OS Signal Handling	For graceful termination of services.
-Channel-based Coordination	Clean shutdown signals between routines.
-
-✅ Why This Approach?
-This mimics how Redis periodically evicts expired keys (lazy & active expiry mechanisms).
-
-Helps understand background tasks vs user-facing request handling.
-
-Teaches you how to design long-running services with graceful shutdown.
-
-🗺️ Roadmap (Planned Features)
-Feature	Description
-✅ TTL-based Expiry (Done)	Per-key expiration timeouts.
-🟡 Basic HTTP API (GET, SET, DELETE)	Expose cache endpoints via REST.
-🟡 LRU Eviction Policy	Evict least recently used keys when memory limit is reached.
-🟡 In-memory Size Limits	Configurable max keys or memory usage.
-🟡 Persistent Storage (AOF/RDB Simulation)	Snapshot and append-only persistence like Redis.
-🟡 Statistics & Metrics Endpoint	Expose ops/sec, hits/misses, memory usage via /metrics.
-🟡 Sharding / Partitioning Simulation	For scaling beyond 10M keys across instances.
-🟡 Pub/Sub Skeleton	Simulate Redis pub/sub messaging.
-🟡 Cluster Mode / Replica Simulation	Design for high-availability awareness.
-
-🚀 Goal
-➡ Educational, but realistic
-➡ Designed to help you learn:
-
-How Redis-like caches are built.
-
-How to scale them theoretically to 10M+ keys.
-
-How caches integrate into real-world products.
-
-🏗️ Tech Stack
-Go 1.21+
-
-Standard Library Only (for now)
-
-✅ Running the Project
+🛠️ Usage
+Run Server:
 bash
 Copy
 Edit
 go run main.go
-You'll see cleanup ticks in the console.
-HTTP API endpoints will come next.
+HTTP Endpoints:
+Method	URL	Params	Description
+GET	/set	key, value, ttl (seconds)	Set key with value and optional TTL
+GET	/get	key	Get value of key
+GET	/delete	key	Delete a key
 
-✅ To Be Done Tomorrow:
-Add HTTP API endpoints (GET, SET, DELETE).
+❗ Currently, this is not following strict RESTful design. Will be refactored.
 
-Add LRU eviction (core data structure design).
-
-Metrics (hit/miss counters, key count, memory stats).
-
-Scalability design notes (how Redis scales to millions of keys).
-
-✅ Final Goal: Redis Simplified in Go
-By end of this project, you'll have:
-
-An actual Redis-like cache service in Go.
-
-Theoretical understanding of production-scale caching.
-
-Hands-on code for expiry, eviction, persistence, clustering basics.
-
-📂 Folder Structure (Soon)
-bash
-Copy
-Edit
-cache/
-    cache.go      # Core cache logic (map, expiry, eviction)
-    eviction.go   # LRU / LFU implementations
-    persistence.go# AOF / RDB simulation
-server/
-    http.go       # HTTP server, endpoints
-    metrics.go    # Stats & metrics
-main.go           # Entry point, signal handling, cleanup routines
-README.md         # This file
-✅ Contributions (Your Learning Journey)
-This is designed for personal learning. Fork, modify, and experiment!
+📊 ✅ Next Features (Planned):
+Feature	Description
+🟢 Cache Metrics	Add metrics: cache hits, misses, evictions, TTL expirations
+🟢 High Concurrency Optimization	Sharded locks / sync.Map / concurrency-safe structures
+🟢 Prometheus Metrics	Expose metrics endpoint for monitoring
+🟢 RESTful API Refactor	Replace /set, /get, /delete with RESTful design (POST /cache, GET /cache/{key}, DELETE /cache/{key})
