@@ -19,17 +19,25 @@ type CacheItem struct {
 }
 
 type Cache struct {
-	mu       sync.RWMutex
-	store    map[string]*list.Element
-	order    *list.List
-	capacity int
+	mu        sync.RWMutex
+	store     map[string]*list.Element
+	order     *list.List
+	capacity  int
+	hits      int64
+	misses    int64
+	evictions int64
+	expired   int64
 }
 
 func NewCache(capacity int) *Cache {
 	c := &Cache{
-		store:    make(map[string]*list.Element),
-		order:    list.New(),
-		capacity: capacity,
+		store:     make(map[string]*list.Element),
+		order:     list.New(),
+		capacity:  capacity,
+		hits:      0,
+		misses:    0,
+		evictions: 0,
+		expired:   0,
 	}
 	return c
 }
@@ -38,6 +46,7 @@ func (c *Cache) evictLRU() {
 	lruElement := c.order.Back()
 	if lruElement != nil {
 		c.removeElement(lruElement)
+		c.evictions++
 	}
 }
 
@@ -65,6 +74,7 @@ func (c *Cache) removeExpiredKeys() {
 		item := e.Value.(*CacheItem)
 		if time.Now().After(item.ExpiresAt) {
 			c.removeElement(e)
+			c.expired++
 		}
 		e = prev
 	}
@@ -108,15 +118,19 @@ func (c *Cache) Get(key string) (string, bool) {
 
 	elem, ok := c.store[key]
 	if !ok {
+		c.misses++
 		return "", false
 	}
 	item := elem.Value.(*CacheItem)
 	if time.Now().After(item.ExpiresAt) {
 		//key has expired, remove from map
 		c.removeElement(elem)
+		c.expired++
+		c.misses++
 		return "", false
 	}
 	c.order.MoveToFront(elem)
+	c.hits++
 	return item.Value, true
 }
 
