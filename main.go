@@ -12,15 +12,26 @@ import (
 
 func main() {
 	cache := NewCache(1000)
+	if err := cache.LoadSnapshot("cache_snapshot.json"); err != nil {
+		fmt.Println("No Snapshot Loaded !!!!")
+	}
 	done := make(chan struct{})
 	go cache.cleanupExpiredKeys(60*time.Second, done)
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 		<-sigChan
 		close(done)
+		if err := cache.SaveSnapshot("cache_snapshot.json"); err != nil {
+			fmt.Println("Error Saving Snapshot!!!")
+		} else {
+			fmt.Println("Snapshot saved successfully!!!")
+		}
 		fmt.Println("shutting down.... ")
+		os.Exit(0)
 	}()
 	fmt.Println("starting server ")
 	http.HandleFunc("/cache", func(w http.ResponseWriter, r *http.Request) {
